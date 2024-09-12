@@ -10,9 +10,8 @@ util.require_natives("2944a", "g")
 util.require_natives("1627063482")
 util.require_natives("1672190175")
 
-function show_startup_message()
-	util.toast("Created & Maintained by Booty\nDiscord: ZenithFPS")    
-    util.toast("Hey Booty Bandit!")
+function show_startup_message()    
+    util.toast("Hey Booty Bandit! test 1")
 end
 show_startup_message()
 
@@ -49,6 +48,7 @@ local veh_tab = menu.list(menu.my_root(), "Vehicle", {}, "")
 local fun_tab = menu.list(menu.my_root(), "Fun", {}, "")
 local chaos_tab = menu.list(menu.my_root(), "Chaos", {}, "")
 local world_tab = menu.list(menu.my_root(), "World", {}, "")
+local anim_tab = menu.list(menu.my_root(), "Animations", {}, "")
 
 -- SELF TAB ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -1280,6 +1280,19 @@ end)
 
 -- VEHICLE TAB ----------------------------------------------------------------------------------------------------------------------------------
 
+--Repair Vehicle
+menu.action(veh_tab, "Repair Vehicle", {}, "Repairs the current vehicle.", function()
+    menu.trigger_commands("fixvehicle")
+end)
+
+menu.action(veh_tab, "Enter Last Vehicle", {}, "Teleports you into your last vehicle.", function()
+    menu.trigger_commands("enterlastvehicle")
+end)
+
+menu.action(veh_tab, "Teleport Last Vehicle", {}, "Teleports your last vehicle to you.", function()
+    menu.trigger_commands("calllastvehicle")
+end)
+
 --Delete Vehicle
 menu.action(veh_tab, "Delete Vehicle", {}, "Deletes the current vehicle.", function()
     menu.trigger_commands("deletevehicle")
@@ -1905,6 +1918,47 @@ menu.action(clearspecific_menu, "Clear Pickups", {"clearpickups"}, "Deletes all 
     end
 end)
 
+--Auto-TP Waypoint
+function teleport_to_waypoint()
+    if HUD.IS_WAYPOINT_ACTIVE() then
+        local waypointBlip = HUD.GET_FIRST_BLIP_INFO_ID(HUD.GET_WAYPOINT_BLIP_ENUM_ID())
+        if HUD.DOES_BLIP_EXIST(waypointBlip) then
+            local waypointCoords = HUD.GET_BLIP_COORDS(waypointBlip)
+            local zPos = 0.0
+            local foundGround = false
+            for i = 1000, 0, -10 do
+                local groundZ = memory.alloc(4)
+                MISC.GET_GROUND_Z_FOR_3D_COORD(waypointCoords.x, waypointCoords.y, i + 0.0, groundZ, true)
+                zPos = memory.read_float(groundZ)
+                if zPos > 0 then
+                    foundGround = true
+                    waypointCoords.z = zPos
+                    break
+                end
+            end
+            if not foundGround then
+                waypointCoords.z = 50.0
+            end
+            local playerPed = PLAYER.PLAYER_PED_ID()
+            ENTITY.SET_ENTITY_COORDS(playerPed, waypointCoords.x, waypointCoords.y, waypointCoords.z, false, false, false, true)
+            util.toast("Teleported to waypoint!")
+        else
+            util.toast("Invalid waypoint!")
+        end
+    else
+        util.toast("No waypoint set!")
+    end
+end
+
+menu.toggle_loop(self_tab, "Auto Teleport to Waypoint", {"autotp"}, "Automatically teleport to the waypoint when it's set.", function()
+    if HUD.IS_WAYPOINT_ACTIVE() then
+        teleport_to_waypoint()
+        HUD.SET_WAYPOINT_OFF()
+    end
+    util.yield(2000)  -- Check every 2 seconds
+end)
+
+
 --Traffic Blips
 local trafficBlips = {}
 menu.toggle_loop(world_tab, "Traffic Blips", {"trafficblips"}, "Puts a blip on all AI traffic. (Good for drifting or cruising)", function(on)
@@ -2103,6 +2157,106 @@ local function turn_player_vehicle(pid)
         ENTITY.SET_ENTITY_ROTATION(player_vehicle, 0, 0, alter_heading, 2, true)
     end
 end
+
+--------- Animations -----------------------------------------------------------------------------------------------------------
+--                                        Thanks to the devs of the Animations+ lua for their code
+-- Functions
+function request_model_load(hash)
+    request_time = os.time()
+    if not STREAMING.IS_MODEL_VALID(hash) then
+        return
+    end
+    STREAMING.REQUEST_MODEL(hash)
+    while not STREAMING.HAS_MODEL_LOADED(hash) do
+        if os.time() - request_time >= 10 then
+            break
+        end
+        util.yield()
+    end
+end
+
+function attachto(offx, offy, offz, pid, angx, angy, angz, hash, bone, isnpc, isveh, tint)
+    local ped = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pid)
+    local bone = PED.GET_PED_BONE_INDEX(ped, bone)
+    local coords = ENTITY.GET_ENTITY_COORDS(ped, true)
+    coords.x = coords['x']
+    coords.y = coords['y']
+    coords.z = coords['z']
+    if isnpc then
+        obj = entities.create_ped(1, hash, coords, 90.0)
+    elseif isveh then
+        obj = entities.create_vehicle(hash, coords, 90.0)
+    else
+        obj = OBJECT.CREATE_OBJECT_NO_OFFSET(hash, coords['x'], coords['y'], coords['z'], true, false, false)
+    end
+    if tint ~= nil then
+        OBJECT.SET_OBJECT_TINT_INDEX(obj, tint)
+    end
+    ENTITY.SET_ENTITY_INVINCIBLE(obj, true)
+    ENTITY.ATTACH_ENTITY_TO_ENTITY(obj, ped, bone, offx, offy, offz, angx, angy, angz, false, false, true, false, 0, true)
+    ENTITY.SET_ENTITY_COMPLETELY_DISABLE_COLLISION(obj, false, true)
+end
+
+function play_animstationary(dict, name, duration)
+    ped = PLAYER.PLAYER_PED_ID()
+    while not STREAMING.HAS_ANIM_DICT_LOADED(dict) do
+        STREAMING.REQUEST_ANIM_DICT(dict)
+        util.yield()
+    end
+    TASK.TASK_PLAY_ANIM(ped, dict, name, 3.0, 2.0, duration, 3, 1.0, false, false, false)
+end
+
+--Animations
+menu.divider(anim_tab, "-- Use with Animations+ --")
+menu.action(anim_tab, "Lounge (Black)", {"lounge1"}, "", function(on_click)
+    request_model_load(94826578)
+    attachto(-0.15, -0.540, 0.05, players.user(), 102, 5.0, 169.5, 94826578, 0, false, false)
+    play_animstationary("anim@scripted@robbery@tunf_iaa_ig1_interrogation@", "idle_before_cs_dealer", -1)
+end)
+
+menu.action(anim_tab, "Lounge (Brown)", {"loungechair2"}, "", function(on_click)
+    request_model_load(-671738639)
+    attachto(-0.15, -0.540, 0.05, players.user(), 102, 5.0, 169.5, -671738639, 0, false, false)
+    play_animstationary("anim@scripted@robbery@tunf_iaa_ig1_interrogation@", "idle_before_cs_dealer", -1)
+end)
+
+menu.action(anim_tab, "Dining Chair", {"chair1"}, "", function(on_click)
+    request_model_load(451260528)
+    --attachto(-0.05, -0.600, -0.05, players.user(), 100.0, -3.0, 170.0, -671738639, 0, false, false)
+    attachto(0.05, 0.005, -0.63, players.user(), 5.0, 3.0, 185.0, 451260528, 0, false, false)  ------------ left/right, for/back, up/down -------- up/down, left/right, for/back
+    play_animstationary("anim@scripted@player@fix_astu_ig8_weed_smoke@male@", "male_pos_d_p1_base", -1)
+end)
+
+menu.action(anim_tab, "Circular Chair", {"chair2"}, "", function(on_click)
+    request_model_load(-1785811936)
+    attachto(0.05, -0.7, -0.63, players.user(), 5.0, 3.0, 185.0, -1785811936, 0, false, false)
+    play_animstationary("anim@scripted@player@fix_astu_ig8_weed_smoke@male@", "male_pos_d_p1_base", -1)
+end)
+
+menu.action(anim_tab, "Red Chair", {"chair3"}, "", function(on_click)
+    request_model_load(-2033210578)
+    attachto(0.05, -0.1, -0.63, players.user(), 5.0, 3.0, 185.0, -2033210578, 0, false, false)
+    play_animstationary("anim@scripted@player@fix_astu_ig8_weed_smoke@male@", "male_pos_d_p1_base", -1)
+end)
+
+menu.action(anim_tab, "White Sofa", {"chair4"}, "", function(on_click)
+    request_model_load(-546388559)
+    attachto(0.05, -0.1, -0.63, players.user(), 5.0, 0.05, 185.0, -546388559, 0, false, false)
+    play_animstationary("anim@scripted@player@fix_astu_ig8_weed_smoke@male@", "male_pos_d_p1_base", -1)
+end)
+
+menu.action(anim_tab, "Red Sofa", {"chair5"}, "", function(on_click)
+    request_model_load(338307413)
+    attachto(0.05, -0.49, -0.4, players.user(), 50.0, 0.05, 185.0, 338307413, 0, false, false)  ------------ OFFSETS: left/right, for/back, up/down -------- ROTATIONS: up/down, left/right, for/back
+    play_animstationary("switch@michael@on_sofa", "base_jimmy", -1)
+end)
+
+menu.action(anim_tab, "Wheelchair", {"wheelchair"}, "", function(on_click)
+    request_model_load(1262298127)
+    attachto(-0.05, -0.08, -0.15, players.user(), 30, 5.0, 169.5, 1262298127, 0, false, false)
+    play_animstationary("anim@scripted@player@fix_astu_ig8_weed_smoke@male@", "male_pos_a_p1_base", -1)
+end)
+
 
 -- PLAYERS OPTIONS FEATURES ----------------------
 
