@@ -511,16 +511,6 @@ menu.toggle(self_tab, "Ghost", { "bghost" },
     end
 )
 
---Ghost
-menu.toggle(self_tab, "Ghost2", { "bghost2" },
-    "Invisibility and Off The Radar",
-    function(state)
-        menu.trigger_command(
-            menu.ref_by_path("Self>Appearance>Invisibility>" .. (state and "Enabled" or "Disabled"), 38), "")
-        menu.set_value(menu.ref_by_path("Online>Off The Radar", 38), state)
-    end
-)
-
 --Fast Roll
 menu.toggle_loop(movement_menu, "Fast Roll", {"fastroll"}, "Roll faster when aiming.", function()
     STATS.STAT_SET_INT(util.joaat("MP"..util.get_char_slot().."_SHOOTING_ABILITY"), 200, true)
