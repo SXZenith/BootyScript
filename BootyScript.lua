@@ -11,7 +11,8 @@ util.require_natives("1627063482")
 util.require_natives("1672190175")
 
 function show_startup_message()    
-    util.toast("Hey Booty Bandit! test 1")
+    util.toast("Hey Booty Bandit!")
+util.toast("test auto update!")
 end
 show_startup_message()
 
