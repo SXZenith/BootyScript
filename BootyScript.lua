@@ -1,3 +1,10 @@
+util.ensure_package_is_installed("lua/auto-updater")
+local auto_updater = require("auto-updater")
+auto_updater.run_auto_update({
+    source_url="https://github.com/SXZenith/BootyScript/blob/main/BootyScript.lua",
+    script_relpath=SCRIPT_RELPATH,
+})
+
 util.require_natives("3095a")
 util.require_natives("2944a", "g")
 util.require_natives("1627063482")
@@ -1477,51 +1484,6 @@ function get_player_vehicle()
     return playerVehicle
 end
 
--- Function to copy paint details from one vehicle to another
-function copy_paint_to_vehicle(targetVehicle, sourceVehicle)
-    -- Check validity of the vehicles
-    if not ENTITY.DOES_ENTITY_EXIST(sourceVehicle) or not ENTITY.DOES_ENTITY_EXIST(targetVehicle) then
-        util.toast("One or both vehicles do not exist.")
-        return
-    end
-
-    -- Copy primary color
-    local primaryColor = VEHICLE.GET_VEHICLE_MOD_COLOR_1(sourceVehicle)
-    VEHICLE.SET_VEHICLE_MOD_COLOR_1(targetVehicle, primaryColor[1], primaryColor[2], primaryColor[3])
-
-    -- Copy secondary color
-    local secondaryColor = VEHICLE.GET_VEHICLE_MOD_COLOR_2(sourceVehicle)
-    VEHICLE.SET_VEHICLE_MOD_COLOR_2(targetVehicle, secondaryColor[1], secondaryColor[2], secondaryColor[3])
-
-    -- Copy pearlescent color
-    local pearlescentColor = VEHICLE.GET_VEHICLE_PEARLESCENT_COLOR(sourceVehicle)
-    VEHICLE.SET_VEHICLE_PEARLESCENT_COLOR(targetVehicle, pearlescentColor)
-end
-
--- Add the "Copy Paint" option to the vehicle menu
-menu.action(veh_tab, "Copy Paint", {"copypaint"}, "Copy the paint from the closest vehicle to your vehicle, including primary, secondary, and pearlescent paints.", function()
-    local playerVehicle = get_player_vehicle()
-
-    if playerVehicle then
-        local closestVehicle = get_closest_vehicle()
-
-        if closestVehicle and closestVehicle ~= playerVehicle then
-            copy_paint_to_vehicle(playerVehicle, closestVehicle)
-            util.toast("Paint copied from the closest vehicle to your vehicle.")
-        else
-            util.toast("No valid closest vehicle found or the closest vehicle is the player's own vehicle.")
-        end
-    else
-        util.toast("You need to be in a vehicle to use this option.")
-    end
-end)
-
-
-
-
-
-
-
 -- FUN TAB -----------------------------------------------------------------------------------------------------------------------------------------------------------
 
 -- Create the "Bootys Pets" submenu under the "Fun" tab
@@ -2916,6 +2878,7 @@ end)
         make_vehicles_drive_towards_player(target_coords)
     end)
 end
+
 
 local function on_player_join(pid)
     generate_features(pid)
