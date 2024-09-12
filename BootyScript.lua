@@ -12,7 +12,6 @@ util.require_natives("1672190175")
 
 function show_startup_message()    
     util.toast("Hey Booty Bandit!")
-util.toast("test auto update!")
 end
 show_startup_message()
 
@@ -504,6 +503,16 @@ end)
 
 --Ghost
 menu.toggle(self_tab, "Ghost", { "bghost" },
+    "Invisibility and Off The Radar",
+    function(state)
+        menu.trigger_command(
+            menu.ref_by_path("Self>Appearance>Invisibility>" .. (state and "Enabled" or "Disabled"), 38), "")
+        menu.set_value(menu.ref_by_path("Online>Off The Radar", 38), state)
+    end
+)
+
+--Ghost
+menu.toggle(self_tab, "Ghost2", { "bghost2" },
     "Invisibility and Off The Radar",
     function(state)
         menu.trigger_command(
