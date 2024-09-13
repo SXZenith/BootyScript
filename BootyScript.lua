@@ -1,10 +1,3 @@
-util.ensure_package_is_installed("lua/auto-updater")
-local auto_updater = require("auto-updater")
-auto_updater.run_auto_update({
-    source_url="https://github.com/SXZenith/BootyScript/blob/main/BootyScript.lua",
-    script_relpath=SCRIPT_RELPATH,
-})
-
 util.require_natives("3095a")
 util.require_natives("2944a", "g")
 util.require_natives("1627063482")
@@ -1309,45 +1302,20 @@ menu.click_slider(veh_tab, "Switch Seats", {"switchseats"}, "Switches your seats
     end
 end)
 
---Downforce
-menu.toggle_loop(veh_tab, "Downforce",{"downforce"}, "Applies a downforce to your car.", function()
-    local player_cur_car = entities.get_user_vehicle_as_handle()
-    if player_cur_car ~= 0 then
-        ENTITY.APPLY_FORCE_TO_ENTITY(player_cur_car, 1, 0, 0, -1, 0, 0, 0, 0, true, false, true, false, true)
+--Aquaphobia
+local vehicle = entities.get_user_vehicle_as_handle()
+local function is_vehicle_in_water(vehicle)
+    return ENTITY.IS_ENTITY_IN_WATER(vehicle)
+end
+menu.toggle_loop(veh_tab, "Aquaphobia", {"aquaphobia"}, "Your vehicle really hates water.\nPawz stop driving into the water!", function()
+    vehicle = entities.get_user_vehicle_as_handle()
+    if is_vehicle_in_water(vehicle) then
+        local vehicle_coords = ENTITY.GET_ENTITY_COORDS(vehicle)
+        local new_coords = v3(vehicle_coords.x, vehicle_coords.y, vehicle_coords.z + 5)
+        ENTITY.SET_ENTITY_COORDS(vehicle, new_coords.x, new_coords.y, new_coords.z, false, false, false, true)
     end
 end)
 
---Instant On
-function TurnCarOnInstantly()
-    local localped = players.user_ped()
-    if PED.IS_PED_GETTING_INTO_A_VEHICLE(localped) then
-        local veh = PED.GET_VEHICLE_PED_IS_ENTERING(localped)
-        if not VEHICLE.GET_IS_VEHICLE_ENGINE_RUNNING(veh) then
-            VEHICLE.SET_VEHICLE_FIXED(veh)
-            VEHICLE.SET_VEHICLE_ENGINE_HEALTH(veh, 1000)
-            VEHICLE.SET_VEHICLE_ENGINE_ON(veh, true, true, false)
-        end
-        if VEHICLE.GET_VEHICLE_CLASS(veh) == 15 then
-            VEHICLE.SET_HELI_BLADES_FULL_SPEED(veh)
-        end
-    end
-end
-
-menu.toggle_loop(veh_tab, "Instantly Start Engine", {"instantcarengine"}, "Instantly starts the engine of the vehicle.", function(on)
-    TurnCarOnInstantly()
-end)
-
---Radio Off
-menu.toggle_loop(veh_tab, "Radio Off", {"radiooff"}, "Turn off the radio locally (for you).", function ()
-local veh = PED.GET_VEHICLE_PED_IS_IN(players.user_ped())
-if PED.IS_PED_IN_ANY_VEHICLE(players.user_ped(), false) then
-AUDIO.SET_VEHICLE_RADIO_ENABLED(veh, false)
-util.yield()
-end
-end, function ()
-local veh = PED.GET_VEHICLE_PED_IS_IN(players.user_ped())
-AUDIO.SET_VEHICLE_RADIO_ENABLED(veh, true)
-end)
 
 --Vanishing Act
 local punchVehicleToggle = false
@@ -1399,6 +1367,102 @@ util.create_thread(function()
         util.yield()
     end
 end)
+
+
+local handling_menu = menu.list(veh_tab, "Vehicle Handling", {"bootyspetsmenu"}, "Fun handling options for your vehicle.")
+-- Bouncy Vehicle
+local wasInAir = false
+local bouncy = 50
+menu.toggle_loop(handling_menu, "Vehicle Bounce", {"vehBounce"}, "Makes your vehicle bouncy.\nWeeeeee!", function()
+    local vehicle = entities.get_user_vehicle_as_handle()
+    local isInAir = ENTITY.IS_ENTITY_IN_AIR(vehicle)
+    if wasInAir and not isInAir then
+        local vec = ENTITY.GET_ENTITY_VELOCITY(vehicle)
+        ENTITY.SET_ENTITY_VELOCITY(vehicle, vec.x, vec.y, (vec.z * -1 * bouncy / 100))
+    end
+    wasInAir = isInAir
+end)
+menu.slider_float(handling_menu, "Vehicle Bounce Strength", {" "}, "Adjusts the strength of the vehicle bounce.", 1, 500, bouncy, 10, function(value)
+    bouncy = value
+end)
+
+
+local my_cur_car = entities.get_user_vehicle_as_handle()
+menu.toggle_loop(handling_menu, "Stay on Ground", {" "}, "Forces your vehicle to stay on the ground.", function()
+    local vehicle = entities.get_user_vehicle_as_handle()
+    if ENTITY.IS_ENTITY_IN_AIR(vehicle) then
+        NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(vehicle)
+        ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, 0, 0, -1.0, 0, 0, 0.5, 0, false, false, true)
+    end
+end)
+
+
+--Downforce
+menu.toggle_loop(handling_menu, "Downforce",{"downforce"}, "Applies a downforce to your car.", function()
+    local player_cur_car = entities.get_user_vehicle_as_handle()
+    if player_cur_car ~= 0 then
+        ENTITY.APPLY_FORCE_TO_ENTITY(player_cur_car, 1, 0, 0, -1, 0, 0, 0, 0, true, false, true, false, true)
+    end
+end)
+
+--Doors
+local my_cur_car = entities.get_user_vehicle_as_handle()
+local carDoors = {0, 1, 2, 3}
+local carSettings = {
+    indestructibleDoors = {on = false}
+}
+local veh_doors_menu = menu.list(veh_tab, "Vehicle Doors", {"JSvehDoors"}, "Manage vehicle door features.")
+menu.action(veh_doors_menu, "Open all doors", {"DoorsOpen"}, "Opens all doors of the vehicle.", function()
+    for i, door in ipairs(carDoors) do
+        VEHICLE.SET_VEHICLE_DOOR_OPEN(my_cur_car, i - 1, false, false)
+    end
+end)
+menu.action(veh_doors_menu, "Close all doors", {"DoorsClosed"}, "Closes all doors of the vehicle.", function()
+    VEHICLE.SET_VEHICLE_DOORS_SHUT(my_cur_car, false)
+end)
+menu.toggle_loop(veh_doors_menu, "Keep Doors Closed", {"keepdoorsclosed"}, "Automatically closes the vehicle doors if they are open.", function()
+    if not ENTITY.IS_ENTITY_DEAD(my_cur_car) then
+        for i, door in ipairs(carDoors) do
+            if VEHICLE.GET_VEHICLE_DOOR_ANGLE_RATIO(my_cur_car, i - 1) > 0 and not VEHICLE.IS_VEHICLE_DOOR_DAMAGED(my_cur_car, i - 1) then
+                VEHICLE.SET_VEHICLE_DOOR_SHUT(my_cur_car, i - 1, false)
+            end
+        end
+    end
+end)
+
+
+--Instant On
+function TurnCarOnInstantly()
+    local localped = players.user_ped()
+    if PED.IS_PED_GETTING_INTO_A_VEHICLE(localped) then
+        local veh = PED.GET_VEHICLE_PED_IS_ENTERING(localped)
+        if not VEHICLE.GET_IS_VEHICLE_ENGINE_RUNNING(veh) then
+            VEHICLE.SET_VEHICLE_FIXED(veh)
+            VEHICLE.SET_VEHICLE_ENGINE_HEALTH(veh, 1000)
+            VEHICLE.SET_VEHICLE_ENGINE_ON(veh, true, true, false)
+        end
+        if VEHICLE.GET_VEHICLE_CLASS(veh) == 15 then
+            VEHICLE.SET_HELI_BLADES_FULL_SPEED(veh)
+        end
+    end
+end
+
+menu.toggle_loop(veh_tab, "Instantly Start Engine", {"instantcarengine"}, "Instantly starts the engine of the vehicle.", function(on)
+    TurnCarOnInstantly()
+end)
+
+--Radio Off
+menu.toggle_loop(veh_tab, "Radio Off", {"radiooff"}, "Turn off the radio locally (for you).", function ()
+local veh = PED.GET_VEHICLE_PED_IS_IN(players.user_ped())
+if PED.IS_PED_IN_ANY_VEHICLE(players.user_ped(), false) then
+AUDIO.SET_VEHICLE_RADIO_ENABLED(veh, false)
+util.yield()
+end
+end, function ()
+local veh = PED.GET_VEHICLE_PED_IS_IN(players.user_ped())
+AUDIO.SET_VEHICLE_RADIO_ENABLED(veh, true)
+end)
+
 
 --Remove C4
 menu.toggle_loop(veh_tab, "Auto-Remove C4", {"removec4"}, "Automatically remove sticky bombs on vehicle.", function(on)
@@ -1455,47 +1519,6 @@ menu.toggle_loop(veh_tab, "Annoying Horn", {"annoyinghorn"}, "Spams an annoying 
         PAD.SET_CONTROL_VALUE_NEXT_FRAME(2, 86, 0.0)
     end
 end)
-
-
--- Function to get the closest vehicle to the player
-function get_closest_vehicle()
-    local playerPed = PLAYER.PLAYER_PED_ID()
-    local playerPos = ENTITY.GET_ENTITY_COORDS(playerPed)
-    local closestVehicle = nil
-    local minDistance = math.huge
-
-    for _, vehicle in ipairs(entities.get_all_vehicles_as_handles()) do
-        local vehiclePos = ENTITY.GET_ENTITY_COORDS(vehicle)
-        local distance = MISC.GET_DISTANCE_BETWEEN_COORDS(playerPos.x, playerPos.y, playerPos.z, vehiclePos.x, vehiclePos.y, vehiclePos.z, true)
-
-        if distance < minDistance then
-            minDistance = distance
-            closestVehicle = vehicle
-        end
-    end
-
-    if closestVehicle then
-        util.toast("Closest Vehicle ID: " .. tostring(closestVehicle))
-    else
-        util.toast("No vehicles found.")
-    end
-
-    return closestVehicle
-end
-
--- Function to get the player's current vehicle
-function get_player_vehicle()
-    local playerPed = PLAYER.PLAYER_PED_ID()
-    local playerVehicle = PED.GET_VEHICLE_PED_IS_IN(playerPed, false)
-
-    if playerVehicle then
-        util.toast("Player Vehicle ID: " .. tostring(playerVehicle))
-    else
-        util.toast("Player is not in any vehicle.")
-    end
-
-    return playerVehicle
-end
 
 -- FUN TAB -----------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -1827,7 +1850,33 @@ menu.action(fun_tab, "Flatbed (Repo Cars)", {}, "Use left arrow key to tow/repo 
     end)
 end)
 
-menu.toggle_loop(chaos_tab, "Peds Can't Drive", {" "}, "Where are these guys from?\nNew York?", function()
+--Ped Actions
+local ped_menu = menu.list(chaos_tab, "Ped Actions", {" "}, "Manipulate peds and bring the torture")
+
+menu.toggle_loop(ped_menu, "Suicidal Touch", {"suicidaltouch"}, "When peds touch you, or if you touch peds, they fall over dead.", function()
+    local player_ped = players.user_ped()
+    local peds = entities.get_all_peds_as_handles()
+    for _, ped in ipairs(peds) do
+        if not PED.IS_PED_A_PLAYER(ped) and not PED.IS_PED_IN_ANY_VEHICLE(ped, true) then
+            if ENTITY.IS_ENTITY_TOUCHING_ENTITY(ped, player_ped) then
+                ENTITY.SET_ENTITY_HEALTH(ped, 0, 0)
+            end
+        end
+    end
+    util.yield(100)
+end)
+
+menu.toggle_loop(ped_menu, "Ragdoll All Peds", {"ragdollPeds"}, "Makes all peds ragdoll.", function()
+    local peds = entities.get_all_peds_as_handles()
+    for _, ped in ipairs(peds) do
+        if not PED.IS_PED_A_PLAYER(ped) and not PED.IS_PED_IN_ANY_VEHICLE(ped, true) then
+            PED.SET_PED_TO_RAGDOLL(ped, 1000, 1000, 0, false, false, false)
+        end
+    end
+    util.yield(100)
+end)
+
+menu.toggle_loop(ped_menu, "Peds Can't Drive", {" "}, "Where are these guys from?", function()
     for entities.get_all_peds_as_handles() as ped do 
         if not IS_PED_A_PLAYER(ped) then
             local v = GET_VEHICLE_PED_IS_IN(ped, false)
@@ -1839,6 +1888,10 @@ menu.toggle_loop(chaos_tab, "Peds Can't Drive", {" "}, "Where are these guys fro
         end
     end
 end)
+
+
+
+
 
 -- WORLD TAB ---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
